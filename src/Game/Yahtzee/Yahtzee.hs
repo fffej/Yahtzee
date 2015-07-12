@@ -6,6 +6,8 @@ import System.Random
 import qualified Data.Set as S
 import qualified Data.Map as M
 
+import Data.Maybe
+
 type Dice = Int
 
 -- A roll is five dice
@@ -15,8 +17,8 @@ data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
 data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
 
 -- In the first roll, none are held.
-firstRoll :: Hold
-firstRoll = Hold (False,False,False,False,False)
+initialHolds :: Hold
+initialHolds = Hold (False,False,False,False,False)
 
 -- TODO hide these constructors
 data ScoreType = Aces
@@ -38,8 +40,9 @@ data GameState = GameState
   {
     gen :: StdGen
   , scoreCard :: M.Map ScoreType Roll
-  , currentRoll :: Maybe Roll
+  , currentRoll :: Roll
   , holds :: Hold
+  , available :: S.Set ScoreType
   } deriving (Show)
 
 isUpper :: ScoreType -> Bool
@@ -48,7 +51,7 @@ isUpper = undefined
 isLower :: ScoreType -> Bool
 isLower = not . isLower
 
-roll :: State GameState ()
+roll :: State GameState Roll
 roll = do
   gs <- get
   let g = gen gs
@@ -61,10 +64,10 @@ roll = do
   put gs
          {
            gen = g5,
-           currentRoll = maybe
-                         (Just $ Roll (a,b,c,d,e))
-                         (Just . updateVals (a,b,c,d,e) (holds gs)) cRoll
+           currentRoll = updateVals (a,b,c,d,e) (holds gs) cRoll
          }
+  r <- gets currentRoll
+  return r
 
 updateVals :: (Int,Int,Int,Int,Int) -> Hold -> Roll -> Roll
 updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
@@ -78,26 +81,26 @@ updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
 
 -- Given the set of available of score types and the current roll, pick the best
 chooseScore :: S.Set ScoreType -> Roll -> ScoreType
-chooseScore available roll = undefined
+chooseScore available roll = head (S.toList available)
 
 -- Given the set of available score types, choose the ones to hold
 chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
-chooseInitialHolds available roll = undefined
+chooseInitialHolds available roll = Hold (True,True,True,True,True)
 
 -- Given the set of available score types, choose the ones to hold
 chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
-chooseFinalHolds = undefined
+chooseFinalHolds _ _ = Hold (True,True,True,True,True)
 
 updateHolds :: Hold -> State GameState ()
 updateHolds h = do
   gs <- get
   put gs { holds = h }
 
--- Update the score and rest the current roll
+-- Update the score and reset the current roll
 updateScore :: ScoreType -> Roll -> State GameState ()
 updateScore s r = do
   gs <- get
-  put gs { currentRoll = Nothing, scoreCard = M.insert s r (scoreCard gs) }
+  put gs { scoreCard = M.insert s r (scoreCard gs) }
 
 {-
   How does Yahtzee work?
@@ -114,11 +117,50 @@ updateScore s r = do
 
 -}
 
-f :: (M.Map ScoreType Roll) -> (GameState, (M.Map ScoreType Roll))
-f x = undefined
+playGame :: State GameState ()
+playGame = do
 
-runGame :: Int -> State GameState (M.Map ScoreType Roll)
-runGame seed = undefined -- runState initialState
+  -- Available choices
+  choices <- gets available
   
+  -- Roll dice
+  r <- roll 
+
+  -- Choose holds
+  let initialHolds = chooseInitialHolds choices r
+  modify (\x -> x { holds = initialHolds })
+
+  -- Roll dice
+  r' <- roll 
+
+  -- Choose final holds
+  let initialHolds = chooseInitialHolds choices r'
+  modify (\x -> x { holds = initialHolds })
+
+  -- Last roll!
+  r'' <- roll
+
+  let score = chooseScore choices r''
+
+  modify (\x -> x {
+                    available = S.delete score choices
+                  , holds = initialHolds
+                  , scoreCard = M.insert score r'' (scoreCard x)
+                  })
+  
+  return ()
+  
+
+runGame :: Int -> GameState
+runGame seed = execState playGame initial 
   where
-    initialState = GameState (mkStdGen seed) M.empty Nothing firstRoll
+    initial = GameState
+              {
+                gen = mkStdGen seed
+              , scoreCard = M.empty 
+              , currentRoll = Roll (1,1,1,1,1)
+              , holds = initialHolds
+              , available = S.fromList [Aces, Twos, Threes, Fours, Fives, Sixes,
+                                        ThreeOfAKind, FourOfAKind, FullHouse,
+                                        SmallStraight, LargeStraight, FiveOfAKind, Chance]
+              }
