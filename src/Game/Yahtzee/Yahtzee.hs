@@ -1,12 +1,14 @@
 module Game.Yahtzee.Yahtzee where
 
+import Data.List
 import Control.Monad.State
 import System.Random
+import Data.Ord
 
 import qualified Data.Set as S
 import qualified Data.Map as M
 
-data Dice = One | Two | Three | Four | Five | Six deriving (Eq,Show,Enum,Bounded)
+data Dice = One | Two | Three | Four | Five | Six deriving (Eq,Ord,Show,Enum,Bounded)
 
 instance Random Dice where
   randomR (a,b) g = (toEnum x, g')
@@ -25,7 +27,7 @@ initialHolds :: Hold
 initialHolds = Hold (False,False,False,False,False)
 
 -- TODO hide these constructors
-data ScoreType = Aces
+data ScoreType = Ones
                | Twos
                | Threes
                | Fours
@@ -50,7 +52,7 @@ data GameState = GameState
   } deriving (Show)
 
 isUpper :: ScoreType -> Bool
-isUpper Aces   = True
+isUpper Ones   = True
 isUpper Twos   = True
 isUpper Threes = True
 isUpper Fours  = True
@@ -163,7 +165,7 @@ initialState seed  = GameState
   , scoreCard = M.empty 
   , currentRoll = Roll (One,One,One,One,One)
   , holds = initialHolds
-  , available = S.fromList [Aces, Twos, Threes, Fours, Fives, Sixes,
+  , available = S.fromList [Ones, Twos, Threes, Fours, Fives, Sixes,
                             ThreeOfAKind, FourOfAKind, FullHouse,
                             SmallStraight, LargeStraight, FiveOfAKind, Chance]
   }
@@ -171,3 +173,41 @@ initialState seed  = GameState
 runGame :: Int -> GameState
 runGame seed = execState (replicateM 13 playRound) (initialState seed)
 
+scoreGame :: M.Map ScoreType Roll -> Int
+scoreGame = undefined
+
+toInt :: Dice -> Int
+toInt = (+ 1) . fromEnum
+
+toList :: Roll -> [Dice]
+toList (Roll (a,b,c,d,e)) = [a,b,c,d,e]
+
+groupDie :: [Dice] -> [[Dice]]
+groupDie = group . sort
+
+maxEqualDie :: [Dice] -> Int
+maxEqualDie r = length (maximumBy (comparing length) $ groupDie r)
+
+isFullHouse :: [Dice] -> Bool
+isFullHouse r = length (filter ((== 3) . length) (groupDie r)) == 1
+
+scoreRoll :: [Dice] -> ScoreType -> Int
+scoreRoll r Ones   = 1 * length (filter (== One) r)
+scoreRoll r Twos   = 2 * length (filter (== Two) r)
+scoreRoll r Threes = 3 * length (filter (== Three) r)
+scoreRoll r Fours  = 4 * length (filter (== Four) r)
+scoreRoll r Fives  = 5 * length (filter (== Five) r)
+scoreRoll r Sixes  = 6 * length (filter (== Six) r)
+scoreRoll r Chance = sum (map toInt r)
+scoreRoll r ThreeOfAKind
+  | maxEqualDie r >= 3 = sum (map toInt r)
+  | otherwise          = 0
+scoreRoll r FourOfAKind
+  | maxEqualDie r >= 4 = sum (map toInt r)
+  | otherwise          = 0
+scoreRoll r FiveOfAKind
+  | maxEqualDie r == 5 = 50
+  | otherwise          = 0
+scoreRoll r FullHouse
+  | isFullHouse r = 25
+  | otherwise     = 0
