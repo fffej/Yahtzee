@@ -6,8 +6,6 @@ import System.Random
 import qualified Data.Set as S
 import qualified Data.Map as M
 
-import Data.Maybe
-
 type Dice = Int
 
 -- A roll is five dice
@@ -81,11 +79,11 @@ updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
 
 -- Given the set of available of score types and the current roll, pick the best
 chooseScore :: S.Set ScoreType -> Roll -> ScoreType
-chooseScore available roll = head (S.toList available)
+chooseScore a _ = head (S.toList a)
 
 -- Given the set of available score types, choose the ones to hold
 chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
-chooseInitialHolds available roll = Hold (True,True,True,True,True)
+chooseInitialHolds _ _ = Hold (True,True,True,True,True)
 
 -- Given the set of available score types, choose the ones to hold
 chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
@@ -127,15 +125,15 @@ playRound = do
   r <- roll 
 
   -- Choose holds
-  let initialHolds = chooseInitialHolds choices r
-  modify (\x -> x { holds = initialHolds })
+  let initialHolds' = chooseInitialHolds choices r
+  modify (\x -> x { holds = initialHolds' })
 
   -- Roll dice
   r' <- roll 
 
   -- Choose final holds
-  let initialHolds = chooseInitialHolds choices r'
-  modify (\x -> x { holds = initialHolds })
+  let subsequentHolds = chooseFinalHolds choices r'
+  modify (\x -> x { holds = subsequentHolds })
 
   -- Last roll!
   r'' <- roll
@@ -163,7 +161,6 @@ initialState seed  = GameState
                             SmallStraight, LargeStraight, FiveOfAKind, Chance]
   }
 
-
-
 runGame :: Int -> GameState
-runGame seed = execState playRound (initialState seed)
+runGame seed = execState (replicateM 13 playRound) (initialState seed)
+
