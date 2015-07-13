@@ -95,9 +95,7 @@ updateHolds h = do
 
 -- Update the score and reset the current roll
 updateScore :: ScoreType -> Roll -> State GameState ()
-updateScore s r = do
-  gs <- get
-  put gs { scoreCard = M.insert s r (scoreCard gs) }
+updateScore s r = modify (\x -> x { scoreCard = M.insert s r (scoreCard x) })
 
 {-
   How does Yahtzee work?
