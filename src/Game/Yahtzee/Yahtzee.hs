@@ -64,8 +64,7 @@ roll = do
            gen = g5,
            currentRoll = updateVals (a,b,c,d,e) (holds gs) cRoll
          }
-  r <- gets currentRoll
-  return r
+  gets currentRoll
 
 updateVals :: (Int,Int,Int,Int,Int) -> Hold -> Roll -> Roll
 updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
@@ -115,7 +114,7 @@ updateScore s r = do
 
 -}
 
-playRound :: State GameState ((ScoreType,Roll))
+playRound :: State GameState (ScoreType,Roll)
 playRound = do
 
   -- Available choices
