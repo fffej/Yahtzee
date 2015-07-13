@@ -89,9 +89,7 @@ chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
 chooseFinalHolds _ _ = Hold (True,True,True,True,True)
 
 updateHolds :: Hold -> State GameState ()
-updateHolds h = do
-  gs <- get
-  put gs { holds = h }
+updateHolds h = modify (\x -> x { holds = h })
 
 -- Update the score and reset the current roll
 updateScore :: ScoreType -> Roll -> State GameState ()
