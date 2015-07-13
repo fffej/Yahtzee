@@ -6,7 +6,13 @@ import System.Random
 import qualified Data.Set as S
 import qualified Data.Map as M
 
-type Dice = Int
+data Dice = One | Two | Three | Four | Five | Six deriving (Eq,Show,Enum,Bounded)
+
+instance Random Dice where
+  randomR (a,b) g = (toEnum x, g')
+    where
+      (x,g') = randomR (fromEnum a, fromEnum b) g
+  random g = randomR (minBound, maxBound) g
 
 -- A roll is five dice
 data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
@@ -44,7 +50,13 @@ data GameState = GameState
   } deriving (Show)
 
 isUpper :: ScoreType -> Bool
-isUpper = undefined
+isUpper Aces   = True
+isUpper Twos   = True
+isUpper Threes = True
+isUpper Fours  = True
+isUpper Fives  = True
+isUpper Sixes  = True
+isUpper _      = False
 
 isLower :: ScoreType -> Bool
 isLower = not . isLower
@@ -54,11 +66,11 @@ roll = do
   gs <- get
   let g = gen gs
       cRoll = currentRoll gs
-      (a,g1) = randomR (1, 6) g
-      (b,g2) = randomR (1, 6) g1
-      (c,g3) = randomR (1, 6) g2
-      (d,g4) = randomR (1, 6) g3
-      (e,g5) = randomR (1, 6) g4
+      (a,g1) = random g
+      (b,g2) = random g1
+      (c,g3) = random g2
+      (d,g4) = random g3
+      (e,g5) = random g4
   put gs
          {
            gen = g5,
@@ -66,7 +78,7 @@ roll = do
          }
   gets currentRoll
 
-updateVals :: (Int,Int,Int,Int,Int) -> Hold -> Roll -> Roll
+updateVals :: (Dice,Dice,Dice,Dice,Dice) -> Hold -> Roll -> Roll
 updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
                                 (
                                   if a then a1 else r1,
@@ -149,7 +161,7 @@ initialState seed  = GameState
   {
     gen = mkStdGen seed
   , scoreCard = M.empty 
-  , currentRoll = Roll (1,1,1,1,1)
+  , currentRoll = Roll (One,One,One,One,One)
   , holds = initialHolds
   , available = S.fromList [Aces, Twos, Threes, Fours, Fives, Sixes,
                             ThreeOfAKind, FourOfAKind, FullHouse,
