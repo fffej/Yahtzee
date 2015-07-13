@@ -117,8 +117,8 @@ updateScore s r = do
 
 -}
 
-playGame :: State GameState ()
-playGame = do
+playRound :: State GameState ((ScoreType,Roll))
+playRound = do
 
   -- Available choices
   choices <- gets available
@@ -148,19 +148,22 @@ playGame = do
                   , scoreCard = M.insert score r'' (scoreCard x)
                   })
   
-  return ()
+  return (score,r'')
   
 
+initialState :: Int -> GameState
+initialState seed  = GameState
+  {
+    gen = mkStdGen seed
+  , scoreCard = M.empty 
+  , currentRoll = Roll (1,1,1,1,1)
+  , holds = initialHolds
+  , available = S.fromList [Aces, Twos, Threes, Fours, Fives, Sixes,
+                            ThreeOfAKind, FourOfAKind, FullHouse,
+                            SmallStraight, LargeStraight, FiveOfAKind, Chance]
+  }
+
+
+
 runGame :: Int -> GameState
-runGame seed = execState playGame initial 
-  where
-    initial = GameState
-              {
-                gen = mkStdGen seed
-              , scoreCard = M.empty 
-              , currentRoll = Roll (1,1,1,1,1)
-              , holds = initialHolds
-              , available = S.fromList [Aces, Twos, Threes, Fours, Fives, Sixes,
-                                        ThreeOfAKind, FourOfAKind, FullHouse,
-                                        SmallStraight, LargeStraight, FiveOfAKind, Chance]
-              }
+runGame seed = execState playRound (initialState seed)
