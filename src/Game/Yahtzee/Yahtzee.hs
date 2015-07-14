@@ -14,7 +14,7 @@ instance Random Dice where
   randomR (a,b) g = (toEnum x, g')
     where
       (x,g') = randomR (fromEnum a, fromEnum b) g
-  random g = randomR (minBound, maxBound) g
+  random = randomR (minBound, maxBound)
 
 -- A roll is five dice
 data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
@@ -70,7 +70,7 @@ isUpper Sixes  = True
 isUpper _      = False
 
 isLower :: ScoreType -> Bool
-isLower = not . isLower
+isLower = not . isUpper
 
 roll :: State GameState Roll
 roll = do
@@ -132,20 +132,20 @@ playRound = do
   r <- roll 
 
   -- Choose holds
-  let initialHolds' = (chooseInitialHolds p) choices r
+  let initialHolds' = chooseInitialHolds p choices r
   modify (\x -> x { holds = initialHolds' })
 
   -- Roll dice
   r' <- roll 
 
   -- Choose final holds
-  let subsequentHolds = (chooseFinalHolds p) choices r'
+  let subsequentHolds = chooseFinalHolds p choices r'
   modify (\x -> x { holds = subsequentHolds })
 
   -- Last roll!
   r'' <- roll
 
-  let score = (chooseScore p) choices r''
+  let score = chooseScore p choices r''
 
   modify (\x -> x {
                     available = S.delete score choices
@@ -168,6 +168,9 @@ initialState seed p = GameState
                             SmallStraight, LargeStraight, FiveOfAKind, Chance]
   , player = p
   }
+
+finalScore :: Int -> Player -> Int
+finalScore seed p = (scoreGame . scoreCard) (runGame seed p)
 
 runGame :: Int -> Player -> GameState
 runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
