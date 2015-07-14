@@ -189,7 +189,23 @@ maxEqualDie :: [Dice] -> Int
 maxEqualDie r = length (maximumBy (comparing length) $ groupDie r)
 
 isFullHouse :: [Dice] -> Bool
-isFullHouse r = length (filter ((== 3) . length) (groupDie r)) == 1
+isFullHouse r = length (filter ((== 3) . length) groupedDie) == 1 &&
+                length (filter ((== 2) . length) groupedDie) == 1
+  where
+    groupedDie = groupDie r
+
+contiguous :: [Int] -> Bool
+contiguous xs = all (\(x,y) -> x + 1 == y) $ zip s (tail s)
+  where
+    s = sort xs
+
+isLargeStraight :: [Dice] -> Bool
+isLargeStraight = contiguous . map toInt
+
+isSmallStraight :: [Dice] -> Bool
+isSmallStraight r = any contiguous listsOf4
+  where
+    listsOf4 = filter ((== 4) . length) (subsequences (map toInt r))
 
 scoreRoll :: [Dice] -> ScoreType -> Int
 scoreRoll r Ones   = 1 * length (filter (== One) r)
@@ -211,3 +227,9 @@ scoreRoll r FiveOfAKind
 scoreRoll r FullHouse
   | isFullHouse r = 25
   | otherwise     = 0
+scoreRoll r SmallStraight
+  | isSmallStraight r = 30
+  | otherwise = 0
+scoreRoll r LargeStraight
+  | isLargeStraight r = 40
+  | otherwise = 0
