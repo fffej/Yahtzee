@@ -173,7 +173,12 @@ runGame :: Int -> Player -> GameState
 runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 
 scoreGame :: M.Map ScoreType Roll -> Int
-scoreGame = undefined
+scoreGame xs = lower + upper + upperBonus
+  where
+    upperBonus = if upper >= 63 then 35 else 0
+    lower = scoreRolls $ filter (\(st,_) -> isLower st) $ M.toList xs
+    upper = scoreRolls $ filter (\(st,_) -> isUpper st) $ M.toList xs
+    scoreRolls rs = sum $ map (\(st,Roll (a,b,c,d,e)) -> scoreRoll [a,b,c,d,e] st) rs
 
 toInt :: Dice -> Int
 toInt = (+ 1) . fromEnum
