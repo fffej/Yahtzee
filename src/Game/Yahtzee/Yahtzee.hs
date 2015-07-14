@@ -22,6 +22,14 @@ data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
 -- Each time round, some of them can be held
 data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
 
+
+data Player = Player
+              {
+                chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
+              , chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
+              , chooseScore :: S.Set ScoreType -> Roll -> ScoreType
+              }
+
 -- In the first roll, none are held.
 initialHolds :: Hold
 initialHolds = Hold (False,False,False,False,False)
@@ -49,7 +57,8 @@ data GameState = GameState
   , currentRoll :: Roll
   , holds :: Hold
   , available :: S.Set ScoreType
-  } deriving (Show)
+  , player :: Player
+  } 
 
 isUpper :: ScoreType -> Bool
 isUpper Ones   = True
@@ -90,18 +99,6 @@ updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
                                   if e then a5 else r5
                                 )
 
--- Given the set of available of score types and the current roll, pick the best
-chooseScore :: S.Set ScoreType -> Roll -> ScoreType
-chooseScore a _ = head (S.toList a)
-
--- Given the set of available score types, choose the ones to hold
-chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
-chooseInitialHolds _ _ = Hold (True,True,True,True,True)
-
--- Given the set of available score types, choose the ones to hold
-chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
-chooseFinalHolds _ _ = Hold (True,True,True,True,True)
-
 updateHolds :: Hold -> State GameState ()
 updateHolds h = modify (\x -> x { holds = h })
 
@@ -129,25 +126,26 @@ playRound = do
 
   -- Available choices
   choices <- gets available
+  p <- gets player
   
   -- Roll dice
   r <- roll 
 
   -- Choose holds
-  let initialHolds' = chooseInitialHolds choices r
+  let initialHolds' = (chooseInitialHolds p) choices r
   modify (\x -> x { holds = initialHolds' })
 
   -- Roll dice
   r' <- roll 
 
   -- Choose final holds
-  let subsequentHolds = chooseFinalHolds choices r'
+  let subsequentHolds = (chooseFinalHolds p) choices r'
   modify (\x -> x { holds = subsequentHolds })
 
   -- Last roll!
   r'' <- roll
 
-  let score = chooseScore choices r''
+  let score = (chooseScore p) choices r''
 
   modify (\x -> x {
                     available = S.delete score choices
@@ -158,8 +156,8 @@ playRound = do
   return (score,r'')
   
 
-initialState :: Int -> GameState
-initialState seed  = GameState
+initialState :: Int -> Player -> GameState
+initialState seed p = GameState
   {
     gen = mkStdGen seed
   , scoreCard = M.empty 
@@ -168,10 +166,11 @@ initialState seed  = GameState
   , available = S.fromList [Ones, Twos, Threes, Fours, Fives, Sixes,
                             ThreeOfAKind, FourOfAKind, FullHouse,
                             SmallStraight, LargeStraight, FiveOfAKind, Chance]
+  , player = p
   }
 
-runGame :: Int -> GameState
-runGame seed = execState (replicateM 13 playRound) (initialState seed)
+runGame :: Int -> Player -> GameState
+runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 
 scoreGame :: M.Map ScoreType Roll -> Int
 scoreGame = undefined
@@ -233,3 +232,17 @@ scoreRoll r SmallStraight
 scoreRoll r LargeStraight
   | isLargeStraight r = 40
   | otherwise = 0
+
+{-
+   The daft player
+   -- never rerolls his dice
+   -- fills in his score sheet in order
+-}
+daftPlayer :: Player
+daftPlayer = Player
+  {
+    chooseScore = \a _ -> head (S.toList a)
+  , chooseInitialHolds = \_ _ -> Hold (True,True,True,True,True)
+  , chooseFinalHolds = \_ _ -> Hold (True,True,True,True,True)
+  }
+
