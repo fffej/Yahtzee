@@ -104,51 +104,22 @@ updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
 updateHolds :: Hold -> State GameState ()
 updateHolds h = modify (\x -> x { holds = h })
 
--- Update the score and reset the current roll
 updateScore :: ScoreType -> Roll -> State GameState ()
 updateScore s r = modify (\x -> x { scoreCard = M.insert s r (scoreCard x) })
 
-{-
-  How does Yahtzee work?
-
-  There are 13 rounds
-
-  Each round
-    -- Roll dice
-    -- choose holds
-    -- Roll dice
-    -- choose holds
-    -- Roll dice
-    -- Pick a ScoreType (cannot be reused)
-
--}
+reroll :: Hold -> State GameState Roll
+reroll holds' = do
+  modify (\x -> x { holds = holds' })
+  roll
 
 playRound :: State GameState (ScoreType,Roll)
 playRound = do
-
-  -- Available choices
   choices <- gets available
   p <- gets player
-  
-  -- Roll dice
   r <- roll 
-
-  -- Choose holds
-  let initialHolds' = chooseInitialHolds p choices r
-  modify (\x -> x { holds = initialHolds' })
-
-  -- Roll dice
-  r' <- roll 
-
-  -- Choose final holds
-  let subsequentHolds = chooseFinalHolds p choices r'
-  modify (\x -> x { holds = subsequentHolds })
-
-  -- Last roll!
-  r'' <- roll
-
+  r' <- reroll (chooseInitialHolds p choices r)
+  r'' <- reroll (chooseFinalHolds p choices r')
   let score = chooseScore p choices r''
-
   modify (\x -> x {
                     available = S.delete score choices
                   , holds = initialHolds
@@ -178,13 +149,12 @@ runGame :: Int -> Player -> GameState
 runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 
 scoreGame :: M.Map ScoreType Roll -> Int
-scoreGame xs = lower + upper + upperBonus
+scoreGame xs = scoreRolls lower + upperScore + upperBonus
   where
-    upperBonus = if upper >= 63 then 35 else 0
-    lower = scoreRolls $ filter (\(st,_) -> isLower st) $ M.toList xs
-    upper = scoreRolls $ filter (\(st,_) -> isUpper st) $ M.toList xs
-    scoreRolls rs = sum $ map (\(st,r) -> scoreRoll (toList r) st) rs
-
+    upperScore = scoreRolls upper
+    upperBonus = if upperScore >= 63 then 35 else 0
+    (lower,upper) = M.partitionWithKey (\st _ -> isLower st) xs
+    scoreRolls = M.foldrWithKey (\st r s -> s + scoreRoll (toList r) st) 0 
 
 toInt :: Dice -> Int
 toInt = (+ 1) . fromEnum
@@ -243,34 +213,3 @@ scoreRoll r SmallStraight
 scoreRoll r LargeStraight
   | isLargeStraight r = 40
   | otherwise = 0
-
-{-
-   The daft player
-   -- never rerolls his dice
-   -- fills in his score sheet in order
--}
-
-holdAll :: a -> b -> Hold
-holdAll _ _ = Hold(True,True,True,True,True)
-
-chooseFirst :: S.Set ScoreType -> a -> ScoreType
-chooseFirst a _ = head (S.toList a)
-
-chooseBest :: S.Set ScoreType -> Roll -> ScoreType
-chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) $ S.toList a
-
-daftPlayer :: Player
-daftPlayer = Player
-  {
-    chooseScore = chooseFirst
-  , chooseInitialHolds = holdAll
-  , chooseFinalHolds = holdAll
-  }
-
-greedyPlayer :: Player
-greedyPlayer = Player
-  {
-    chooseScore = chooseBest
-  , chooseInitialHolds = holdAll
-  , chooseFinalHolds = holdAll
-  }
