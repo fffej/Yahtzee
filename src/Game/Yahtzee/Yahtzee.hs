@@ -180,13 +180,16 @@ isSmallStraight r = any contiguous listsOf4
   where
     listsOf4 = filter ((== 4) . length) (subsequences (map toInt r))
 
+scoreLower :: Dice -> [Dice] -> Int
+scoreLower n r = (toInt n) * length (filter (== n) r)
+
 scoreRoll :: [Dice] -> ScoreType -> Int
-scoreRoll r Ones   = 1 * length (filter (== One) r)
-scoreRoll r Twos   = 2 * length (filter (== Two) r)
-scoreRoll r Threes = 3 * length (filter (== Three) r)
-scoreRoll r Fours  = 4 * length (filter (== Four) r)
-scoreRoll r Fives  = 5 * length (filter (== Five) r)
-scoreRoll r Sixes  = 6 * length (filter (== Six) r)
+scoreRoll r Ones   = scoreLower One r
+scoreRoll r Twos   = scoreLower Two r
+scoreRoll r Threes = scoreLower Three r
+scoreRoll r Fours  = scoreLower Four r
+scoreRoll r Fives  = scoreLower Five r 
+scoreRoll r Sixes  = scoreLower Six r
 scoreRoll r Chance = sum (map toInt r)
 scoreRoll r ThreeOfAKind
   | maxEqualDie r >= 3 = sum (map toInt r)
