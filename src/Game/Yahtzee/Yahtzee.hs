@@ -67,13 +67,7 @@ free :: ScoreCard -> [ScoreType]
 free = M.keys . M.filter isNothing
 
 isUpper :: ScoreType -> Bool
-isUpper Ones   = True
-isUpper Twos   = True
-isUpper Threes = True
-isUpper Fours  = True
-isUpper Fives  = True
-isUpper Sixes  = True
-isUpper _      = False
+isUpper = flip elem [Ones,Twos,Threes,Fours,Fives,Sixes]
 
 isLower :: ScoreType -> Bool
 isLower = not . isUpper
@@ -108,16 +102,8 @@ updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
                                   if e then a5 else r5
                                 )
 
-updateHolds :: Hold -> State GameState ()
-updateHolds h = modify (\x -> x { holds = h })
-
-updateScore :: ScoreType -> Roll -> State GameState ()
-updateScore s r = modify (\x -> x { scoreCard = M.insert s (Just r) (scoreCard x) })
-
 reroll :: Hold -> State GameState Roll
-reroll holds' = do
-  modify (\x -> x { holds = holds' })
-  roll
+reroll holds' = modify (\x -> x { holds = holds' }) >> roll
 
 playRound :: State GameState (ScoreType,Roll)
 playRound = do
@@ -134,14 +120,17 @@ playRound = do
   
   return (score,r'')
   
-
 initialState :: Int -> Player -> GameState
 initialState seed p = GameState
   {
     gen = mkStdGen seed
   , currentRoll = Roll (One,One,One,One,One)
   , holds = initialHolds
-  , scoreCard = M.fromList $ zip [Ones, Twos, Threes, Fours, Fives, Sixes, ThreeOfAKind, FourOfAKind, FullHouse,SmallStraight, LargeStraight, FiveOfAKind, Chance] $ repeat Nothing 
+  , scoreCard = M.fromList $
+                zip [Ones, Twos, Threes, Fours, Fives, Sixes,
+                     ThreeOfAKind, FourOfAKind, FullHouse,
+                     SmallStraight, LargeStraight, FiveOfAKind, Chance] $
+                repeat Nothing 
   , player = p
   }
 
