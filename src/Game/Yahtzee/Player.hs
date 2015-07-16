@@ -8,11 +8,11 @@ import Data.List
 holdAll :: a -> b -> Hold
 holdAll _ _ = Hold(True,True,True,True,True)
 
-chooseFirst :: [ScoreType] -> a -> ScoreType
-chooseFirst a _ = head a
+chooseFirst :: ScoreCard -> a -> ScoreType
+chooseFirst a _ = head (free a)
 
-chooseBest :: [ScoreType] -> Roll -> ScoreType
-chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) a
+chooseBest :: ScoreCard -> Roll -> ScoreType
+chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) (free a)
 
 {-
    The daft player

@@ -4,7 +4,7 @@ import Data.List
 import Control.Monad.State
 import System.Random
 import Data.Ord
-import Data.Maybe (isJust)
+import Data.Maybe (isNothing)
 
 import qualified Data.Map as M
 
@@ -25,9 +25,9 @@ data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
 -- A player has three jobs.  Choose what to hold, and finally choose a score
 data Player = Player
               {
-                chooseInitialHolds :: [ScoreType] -> Roll -> Hold
-              , chooseFinalHolds :: [ScoreType] -> Roll -> Hold
-              , chooseScore :: [ScoreType] -> Roll -> ScoreType
+                chooseInitialHolds :: ScoreCard -> Roll -> Hold
+              , chooseFinalHolds :: ScoreCard -> Roll -> Hold
+              , chooseScore :: ScoreCard -> Roll -> ScoreType
               }
 
 -- In the first roll, none are held.
@@ -61,7 +61,10 @@ data GameState = GameState
   }
 
 available :: GameState -> [ScoreType]
-available gs = M.keys $ M.filter (not . isJust) (scoreCard gs)
+available = free . scoreCard
+
+free :: ScoreCard -> [ScoreType]
+free = M.keys . M.filter isNothing
 
 isUpper :: ScoreType -> Bool
 isUpper Ones   = True
@@ -118,7 +121,7 @@ reroll holds' = do
 
 playRound :: State GameState (ScoreType,Roll)
 playRound = do
-  choices <- gets available
+  choices <- gets scoreCard
   p <- gets player
   r <- roll 
   r' <- reroll (chooseInitialHolds p choices r)
@@ -151,7 +154,7 @@ runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 scoreGame :: ScoreCard -> Int
 scoreGame ys = scoreRolls lower + upperScore + upperBonus
   where
-    xs = M.mapWithKey (\x (Just y) -> y) ys -- TODO
+    xs = M.mapWithKey (\_ (Just y) -> y) ys -- TODO
     upperScore = scoreRolls upper
     upperBonus = if upperScore >= 63 then 35 else 0
     (lower,upper) = M.partitionWithKey (\st _ -> isLower st) xs
