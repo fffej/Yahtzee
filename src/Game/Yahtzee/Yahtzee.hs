@@ -16,23 +16,23 @@ instance Random Dice where
       (x,g') = randomR (fromEnum a, fromEnum b) g
   random = randomR (minBound, maxBound)
 
--- A roll is five dice
-data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
+-- A roll is list of dice
+type Roll = [Dice] 
 
 -- Each time round, some of them can be held
-data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
+type Hold = [Bool]
 
 -- A player has three jobs.  Choose what to hold, and finally choose a score
 data Player = Player
               {
-                chooseInitialHolds :: ScoreCard -> Roll -> Hold
+                chooseInitialHolds ::  ScoreCard -> Roll -> Hold
               , chooseFinalHolds :: ScoreCard -> Roll -> Hold
               , chooseScore :: ScoreCard -> Roll -> ScoreType
               }
 
 -- In the first roll, none are held.
 initialHolds :: Hold
-initialHolds = Hold (False,False,False,False,False)
+initialHolds = [False,False,False,False,False]
 
 data ScoreType = Ones
                | Twos
@@ -84,23 +84,16 @@ roll = do
   gs <- get
   let g = gen gs
       cRoll = currentRoll gs
-      (a:b:c:d:e:[], g') = rollDie g 5
+      (dies, g') = rollDie g 5
   put gs
          {
            gen = g',
-           currentRoll = updateVals (a,b,c,d,e) (holds gs) cRoll
+           currentRoll = updateVals dies (holds gs) cRoll
          }
   gets currentRoll
 
-updateVals :: (Dice,Dice,Dice,Dice,Dice) -> Hold -> Roll -> Roll
-updateVals (r1,r2,r3,r4,r5) (Hold (a,b,c,d,e)) (Roll (a1,a2,a3,a4,a5)) = Roll
-                                (
-                                  if a then a1 else r1,
-                                  if b then a2 else r2,
-                                  if c then a3 else r3,
-                                  if d then a4 else r4,
-                                  if e then a5 else r5
-                                )
+updateVals :: Roll -> Hold -> Roll -> Roll
+updateVals r h n = zipWith3 (\x y z -> if x then y else z) h r n
 
 reroll :: Hold -> State GameState Roll
 reroll holds' = modify (\x -> x { holds = holds' }) >> roll
@@ -124,7 +117,7 @@ initialState :: Int -> Player -> GameState
 initialState seed p = GameState
   {
     gen = mkStdGen seed
-  , currentRoll = Roll (One,One,One,One,One)
+  , currentRoll = [One,One,One,One,One]
   , holds = initialHolds
   , scoreCard = M.fromList $
                 zip [Ones, Twos, Threes, Fours, Fives, Sixes,
@@ -147,13 +140,10 @@ scoreGame ys = scoreRolls lower + upperScore + upperBonus
     upperScore = scoreRolls upper
     upperBonus = if upperScore >= 63 then 35 else 0
     (lower,upper) = M.partitionWithKey (\st _ -> isLower st) xs
-    scoreRolls = M.foldrWithKey (\st r s -> s + scoreRoll (toList r) st) 0 
+    scoreRolls = M.foldrWithKey (\st r s -> s + scoreRoll r st) 0 
 
 toInt :: Dice -> Int
 toInt = (+ 1) . fromEnum
-
-toList :: Roll -> [Dice]
-toList (Roll (a,b,c,d,e)) = [a,b,c,d,e]
 
 groupDie :: [Dice] -> [[Dice]]
 groupDie = group . sort

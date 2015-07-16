@@ -5,14 +5,21 @@ import Game.Yahtzee.Yahtzee
 import Data.Ord (comparing)
 import Data.List
 
-holdAll :: a -> b -> Hold
-holdAll _ _ = Hold(True,True,True,True,True)
+holdAll :: ScoreCard -> Roll -> Hold
+holdAll _ _ = [True,True,True,True,True]
+
+holdContributors :: ScoreCard -> Roll -> Hold
+holdContributors sc r = holdGoal goal r
+  where
+    goal = chooseBest sc r
+
+holdGoal = undefined
 
 chooseFirst :: ScoreCard -> a -> ScoreType
 chooseFirst a _ = head (free a)
 
 chooseBest :: ScoreCard -> Roll -> ScoreType
-chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) (free a)
+chooseBest a b = maximumBy (comparing (scoreRoll b)) (free a)
 
 {-
    The daft player
@@ -40,7 +47,16 @@ greedyPlayer = Player
   }
 
 {-
-  The analyst
+  The better player
   -- chooses the best roll based on the average score they'll get
+  -- holds only the things that contribute to the roll and tries again
 -}
+betterPlayer :: Player
+betterPlayer = Player
+  {
+    chooseScore = chooseBest
+  , chooseInitialHolds = holdContributors
+  , chooseFinalHolds = holdContributors
+  }
+
 
