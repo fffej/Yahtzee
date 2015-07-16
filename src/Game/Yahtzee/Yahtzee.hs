@@ -48,10 +48,12 @@ data ScoreType = Ones
                | Chance
                  deriving (Show,Eq,Ord)
 
+type ScoreCard = M.Map ScoreType Roll
+
 data GameState = GameState
   {
     gen :: StdGen
-  , scoreCard :: M.Map ScoreType Roll
+  , scoreCard :: ScoreCard
   , currentRoll :: Roll
   , holds :: Hold
   , available :: [ScoreType]
@@ -147,7 +149,7 @@ finalScore seed p = (scoreGame . scoreCard) (runGame seed p)
 runGame :: Int -> Player -> GameState
 runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 
-scoreGame :: M.Map ScoreType Roll -> Int
+scoreGame :: ScoreCard -> Int
 scoreGame xs = scoreRolls lower + upperScore + upperBonus
   where
     upperScore = scoreRolls upper

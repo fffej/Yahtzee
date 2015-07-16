@@ -38,3 +38,9 @@ greedyPlayer = Player
   , chooseInitialHolds = holdAll
   , chooseFinalHolds = holdAll
   }
+
+{-
+  The analyst
+  -- chooses the best roll based on the average score they'll get
+-}
+
