@@ -4,6 +4,7 @@ import Data.List
 import Control.Monad.State
 import System.Random
 import Data.Ord
+import Data.Maybe (isJust)
 
 import qualified Data.Map as M
 
@@ -48,7 +49,7 @@ data ScoreType = Ones
                | Chance
                  deriving (Show,Eq,Ord)
 
-type ScoreCard = M.Map ScoreType Roll
+type ScoreCard = M.Map ScoreType (Maybe Roll)
 
 data GameState = GameState
   {
@@ -56,9 +57,11 @@ data GameState = GameState
   , scoreCard :: ScoreCard
   , currentRoll :: Roll
   , holds :: Hold
-  , available :: [ScoreType]
   , player :: Player
-  } 
+  }
+
+available :: GameState -> [ScoreType]
+available gs = M.keys $ M.filter (not . isJust) (scoreCard gs)
 
 isUpper :: ScoreType -> Bool
 isUpper Ones   = True
@@ -106,7 +109,7 @@ updateHolds :: Hold -> State GameState ()
 updateHolds h = modify (\x -> x { holds = h })
 
 updateScore :: ScoreType -> Roll -> State GameState ()
-updateScore s r = modify (\x -> x { scoreCard = M.insert s r (scoreCard x) })
+updateScore s r = modify (\x -> x { scoreCard = M.insert s (Just r) (scoreCard x) })
 
 reroll :: Hold -> State GameState Roll
 reroll holds' = do
@@ -122,9 +125,8 @@ playRound = do
   r'' <- reroll (chooseFinalHolds p choices r')
   let score = chooseScore p choices r''
   modify (\x -> x {
-                    available = delete score choices
-                  , holds = initialHolds
-                  , scoreCard = M.insert score r'' (scoreCard x)
+                    holds = initialHolds
+                  , scoreCard = M.insert score (Just r'') (scoreCard x)
                   })
   
   return (score,r'')
@@ -134,12 +136,9 @@ initialState :: Int -> Player -> GameState
 initialState seed p = GameState
   {
     gen = mkStdGen seed
-  , scoreCard = M.empty 
   , currentRoll = Roll (One,One,One,One,One)
   , holds = initialHolds
-  , available = [Ones, Twos, Threes, Fours, Fives, Sixes,
-                 ThreeOfAKind, FourOfAKind, FullHouse,
-                 SmallStraight, LargeStraight, FiveOfAKind, Chance]
+  , scoreCard = M.fromList $ zip [Ones, Twos, Threes, Fours, Fives, Sixes, ThreeOfAKind, FourOfAKind, FullHouse,SmallStraight, LargeStraight, FiveOfAKind, Chance] $ repeat Nothing 
   , player = p
   }
 
@@ -150,8 +149,9 @@ runGame :: Int -> Player -> GameState
 runGame seed p = execState (replicateM 13 playRound) (initialState seed p)
 
 scoreGame :: ScoreCard -> Int
-scoreGame xs = scoreRolls lower + upperScore + upperBonus
+scoreGame ys = scoreRolls lower + upperScore + upperBonus
   where
+    xs = M.mapWithKey (\x (Just y) -> y) ys -- TODO
     upperScore = scoreRolls upper
     upperBonus = if upperScore >= 63 then 35 else 0
     (lower,upper) = M.partitionWithKey (\st _ -> isLower st) xs
