@@ -22,7 +22,7 @@ data Roll = Roll (Dice,Dice,Dice,Dice,Dice) deriving (Show)
 -- Each time round, some of them can be held
 data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
 
-
+-- A player has three jobs.  Choose what to hold, and finally choose a score
 data Player = Player
               {
                 chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
@@ -34,7 +34,6 @@ data Player = Player
 initialHolds :: Hold
 initialHolds = Hold (False,False,False,False,False)
 
--- TODO hide these constructors
 data ScoreType = Ones
                | Twos
                | Threes
@@ -72,19 +71,22 @@ isUpper _      = False
 isLower :: ScoreType -> Bool
 isLower = not . isUpper
 
+rollDie :: StdGen -> Int -> ([Dice],StdGen)
+rollDie g 0 = ([], g)
+rollDie g n = (x : y, g'')
+  where
+    (x,g') = random g
+    (y,g'') = rollDie g' (n - 1)
+
 roll :: State GameState Roll
 roll = do
   gs <- get
   let g = gen gs
       cRoll = currentRoll gs
-      (a,g1) = random g
-      (b,g2) = random g1
-      (c,g3) = random g2
-      (d,g4) = random g3
-      (e,g5) = random g4
+      (a:b:c:d:e:[], g') = rollDie g 5
   put gs
          {
-           gen = g5,
+           gen = g',
            currentRoll = updateVals (a,b,c,d,e) (holds gs) cRoll
          }
   gets currentRoll
@@ -181,7 +183,8 @@ scoreGame xs = lower + upper + upperBonus
     upperBonus = if upper >= 63 then 35 else 0
     lower = scoreRolls $ filter (\(st,_) -> isLower st) $ M.toList xs
     upper = scoreRolls $ filter (\(st,_) -> isUpper st) $ M.toList xs
-    scoreRolls rs = sum $ map (\(st,Roll (a,b,c,d,e)) -> scoreRoll [a,b,c,d,e] st) rs
+    scoreRolls rs = sum $ map (\(st,r) -> scoreRoll (toList r) st) rs
+
 
 toInt :: Dice -> Int
 toInt = (+ 1) . fromEnum
@@ -246,11 +249,28 @@ scoreRoll r LargeStraight
    -- never rerolls his dice
    -- fills in his score sheet in order
 -}
+
+holdAll :: a -> b -> Hold
+holdAll _ _ = Hold(True,True,True,True,True)
+
+chooseFirst :: S.Set ScoreType -> a -> ScoreType
+chooseFirst a _ = head (S.toList a)
+
+chooseBest :: S.Set ScoreType -> Roll -> ScoreType
+chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) $ S.toList a
+
 daftPlayer :: Player
 daftPlayer = Player
   {
-    chooseScore = \a _ -> head (S.toList a)
-  , chooseInitialHolds = \_ _ -> Hold (True,True,True,True,True)
-  , chooseFinalHolds = \_ _ -> Hold (True,True,True,True,True)
+    chooseScore = chooseFirst
+  , chooseInitialHolds = holdAll
+  , chooseFinalHolds = holdAll
   }
 
+greedyPlayer :: Player
+greedyPlayer = Player
+  {
+    chooseScore = chooseBest
+  , chooseInitialHolds = holdAll
+  , chooseFinalHolds = holdAll
+  }
