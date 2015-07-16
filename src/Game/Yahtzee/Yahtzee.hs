@@ -5,7 +5,6 @@ import Control.Monad.State
 import System.Random
 import Data.Ord
 
-import qualified Data.Set as S
 import qualified Data.Map as M
 
 data Dice = One | Two | Three | Four | Five | Six deriving (Eq,Ord,Show,Enum,Bounded)
@@ -25,9 +24,9 @@ data Hold = Hold (Bool,Bool,Bool,Bool,Bool) deriving (Show)
 -- A player has three jobs.  Choose what to hold, and finally choose a score
 data Player = Player
               {
-                chooseInitialHolds :: S.Set ScoreType -> Roll -> Hold
-              , chooseFinalHolds :: S.Set ScoreType -> Roll -> Hold
-              , chooseScore :: S.Set ScoreType -> Roll -> ScoreType
+                chooseInitialHolds :: [ScoreType] -> Roll -> Hold
+              , chooseFinalHolds :: [ScoreType] -> Roll -> Hold
+              , chooseScore :: [ScoreType] -> Roll -> ScoreType
               }
 
 -- In the first roll, none are held.
@@ -55,7 +54,7 @@ data GameState = GameState
   , scoreCard :: M.Map ScoreType Roll
   , currentRoll :: Roll
   , holds :: Hold
-  , available :: S.Set ScoreType
+  , available :: [ScoreType]
   , player :: Player
   } 
 
@@ -121,7 +120,7 @@ playRound = do
   r'' <- reroll (chooseFinalHolds p choices r')
   let score = chooseScore p choices r''
   modify (\x -> x {
-                    available = S.delete score choices
+                    available = delete score choices
                   , holds = initialHolds
                   , scoreCard = M.insert score r'' (scoreCard x)
                   })
@@ -136,9 +135,9 @@ initialState seed p = GameState
   , scoreCard = M.empty 
   , currentRoll = Roll (One,One,One,One,One)
   , holds = initialHolds
-  , available = S.fromList [Ones, Twos, Threes, Fours, Fives, Sixes,
-                            ThreeOfAKind, FourOfAKind, FullHouse,
-                            SmallStraight, LargeStraight, FiveOfAKind, Chance]
+  , available = [Ones, Twos, Threes, Fours, Fives, Sixes,
+                 ThreeOfAKind, FourOfAKind, FullHouse,
+                 SmallStraight, LargeStraight, FiveOfAKind, Chance]
   , player = p
   }
 

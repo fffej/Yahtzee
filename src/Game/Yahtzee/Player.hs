@@ -2,23 +2,22 @@ module Game.Yahtzee.Player where
 
 import Game.Yahtzee.Yahtzee
 
-import qualified Data.Set as S
 import Data.Ord (comparing)
 import Data.List
 
 holdAll :: a -> b -> Hold
 holdAll _ _ = Hold(True,True,True,True,True)
 
-chooseFirst :: S.Set ScoreType -> a -> ScoreType
-chooseFirst a _ = head (S.toList a)
+chooseFirst :: [ScoreType] -> a -> ScoreType
+chooseFirst a _ = head a
 
-chooseBest :: S.Set ScoreType -> Roll -> ScoreType
-chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) $ S.toList a
+chooseBest :: [ScoreType] -> Roll -> ScoreType
+chooseBest a b = maximumBy (comparing (scoreRoll (toList b))) a
 
 {-
    The daft player
    -- never rerolls his dice
-   -- fills in his score sheet in order
+   -- fills in the score sheet in order
 -}
 daftPlayer :: Player
 daftPlayer = Player
@@ -30,7 +29,7 @@ daftPlayer = Player
 
 {-
   The greedy player
-  -- chooses the best based on the hand he has and maximising the score
+  -- chooses the best based maximising the score of the current roll
 -}
 greedyPlayer :: Player
 greedyPlayer = Player
